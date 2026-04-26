@@ -28,41 +28,26 @@ export default function Home() {
     }, 1000);
 
     const interval = setInterval(() => {
-      tick += 1;
+      // User's specific simulation logic
+      const getRandom = (min, max) => (Math.random() * (max - min) + min);
       
-      // Cycle: Normal -> Stress -> Pre-Stutter -> Normal
-      const cyclePhase = tick % 15; 
-      
-      let newBpm = 80 + Math.random() * 10;
-      let newGsr = 2 + Math.random() * 3;
-      let newSpeech = 20 + Math.random() * 50;
-      let newMotion = 'Low';
-      
-      if (cyclePhase > 6 && cyclePhase <= 10) {
-        // Stress phase
-        newBpm = 95 + Math.random() * 10;
-        newGsr = 5 + Math.random() * 3;
-        newMotion = 'Medium';
-      } else if (cyclePhase > 10) {
-        // Pre-Stutter phase
-        newBpm = 105 + Math.random() * 15; // 105 - 120
-        newGsr = 8 + Math.random() * 4;
-        newSpeech = 5 + Math.random() * 15; // Hesitation / silence
-        newMotion = 'High';
-      }
+      let newBpm = parseFloat(getRandom(85, 110).toFixed(1));
+      let newGsr = Math.floor(getRandom(240, 290));
+      let newMic = parseFloat(getRandom(50, 2000).toFixed(1));
+      let newMotion = parseFloat(getRandom(0.9, 1.2).toFixed(1));
       
       setData({
-        bpm: Math.round(newBpm),
-        gsr: newGsr.toFixed(1),
-        speech: Math.round(newSpeech),
+        bpm: newBpm,
+        gsr: newGsr,
+        speech: newMic,
         motion: newMotion
       });
       
-      // Determine status based on values
+      // Prediction logic provided by user
       let newStatus = 'NORMAL';
-      if (newBpm > 100 && newGsr > 7) {
+      if (newGsr > 275 && newMic > 800) {
         newStatus = 'PRE-STUTTER';
-      } else if (newBpm > 90 || newGsr > 5) {
+      } else if (newGsr > 260) {
         newStatus = 'STRESS';
       }
       
@@ -179,13 +164,13 @@ export default function Home() {
         <div className="card text-center sensor-card">
           <Droplet size={36} color="#3b82f6" style={{ margin: '0 auto 0.5rem' }} />
           <div className="text-muted mb-1 font-semibold">💧 GSR (Stress)</div>
-          <div style={{ fontSize: '1.8rem', fontWeight: '700' }}>{data.gsr} <span style={{fontSize: '1rem'}}>µS</span></div>
+          <div style={{ fontSize: '1.8rem', fontWeight: '700' }}>{data.gsr}</div>
         </div>
         
         <div className="card text-center sensor-card">
           <MicIcon size={36} color="#8b5cf6" style={{ margin: '0 auto 0.5rem' }} />
           <div className="text-muted mb-1 font-semibold">🎤 MIC (Activity)</div>
-          <div style={{ fontSize: '1.8rem', fontWeight: '700' }}>{data.speech}%</div>
+          <div style={{ fontSize: '1.8rem', fontWeight: '700' }}>{data.speech}</div>
         </div>
         
         <div className="card text-center sensor-card">
