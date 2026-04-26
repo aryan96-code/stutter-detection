@@ -1,38 +1,268 @@
-import { useNavigate } from 'react-router-dom';
-import { Activity, FileText, Mic, TrendingUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Heart, Droplet, Mic as MicIcon, Activity, AlertTriangle, Clock } from 'lucide-react';
 
 export default function Home() {
-  const navigate = useNavigate();
+  const [data, setData] = useState({
+    bpm: 82,
+    gsr: 4.1,
+    speech: 45,
+    motion: 'Low'
+  });
+  
+  const [status, setStatus] = useState('NORMAL');
+  const [isAlertActive, setIsAlertActive] = useState(false);
+
+  // Stats for the session report
+  const [stats, setStats] = useState({
+    stressEvents: 0,
+    preStutterEvents: 0,
+    duration: 0
+  });
+
+  useEffect(() => {
+    let tick = 0;
+    
+    // Timer for duration
+    const timer = setInterval(() => {
+      setStats(prev => ({ ...prev, duration: prev.duration + 1 }));
+    }, 1000);
+
+    const interval = setInterval(() => {
+      tick += 1;
+      
+      // Cycle: Normal -> Stress -> Pre-Stutter -> Normal
+      const cyclePhase = tick % 15; 
+      
+      let newBpm = 80 + Math.random() * 10;
+      let newGsr = 2 + Math.random() * 3;
+      let newSpeech = 20 + Math.random() * 50;
+      let newMotion = 'Low';
+      
+      if (cyclePhase > 6 && cyclePhase <= 10) {
+        // Stress phase
+        newBpm = 95 + Math.random() * 10;
+        newGsr = 5 + Math.random() * 3;
+        newMotion = 'Medium';
+      } else if (cyclePhase > 10) {
+        // Pre-Stutter phase
+        newBpm = 105 + Math.random() * 15; // 105 - 120
+        newGsr = 8 + Math.random() * 4;
+        newSpeech = 5 + Math.random() * 15; // Hesitation / silence
+        newMotion = 'High';
+      }
+      
+      setData({
+        bpm: Math.round(newBpm),
+        gsr: newGsr.toFixed(1),
+        speech: Math.round(newSpeech),
+        motion: newMotion
+      });
+      
+      // Determine status based on values
+      let newStatus = 'NORMAL';
+      if (newBpm > 100 && newGsr > 7) {
+        newStatus = 'PRE-STUTTER';
+      } else if (newBpm > 90 || newGsr > 5) {
+        newStatus = 'STRESS';
+      }
+      
+      setStatus(prev => {
+        if (prev !== 'PRE-STUTTER' && newStatus === 'PRE-STUTTER') {
+          setStats(s => ({ ...s, preStutterEvents: s.preStutterEvents + 1 }));
+        }
+        if (prev !== 'STRESS' && newStatus === 'STRESS') {
+          setStats(s => ({ ...s, stressEvents: s.stressEvents + 1 }));
+        }
+        return newStatus;
+      });
+
+      setIsAlertActive(newStatus === 'PRE-STUTTER');
+      
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(timer);
+    };
+  }, []);
+
+  const getStatusColor = () => {
+    switch (status) {
+      case 'PRE-STUTTER': return 'var(--pre-stutter)';
+      case 'STRESS': return 'var(--stress)';
+      default: return 'var(--normal)';
+    }
+  };
+
+  const getStatusBg = () => {
+    switch (status) {
+      case 'PRE-STUTTER': return 'var(--pre-stutter-bg)';
+      case 'STRESS': return 'var(--stress-bg)';
+      default: return 'var(--normal-bg)';
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m} min ${s} sec`;
+  };
 
   return (
-    <div className="screen">
-      <div className="card text-center mb-3">
-        <Activity size={48} className="mb-2" style={{ color: 'var(--primary)', margin: '0 auto' }} />
-        <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Welcome Back</h2>
-        <p className="text-muted">Your wearable is connected and ready to monitor your speech patterns.</p>
+    <div className="screen" style={{ paddingTop: '1rem' }}>
+      
+      {/* Powerful Line */}
+      <div style={{ 
+        background: 'var(--primary-light)', 
+        borderLeft: '4px solid var(--primary)', 
+        padding: '1rem', 
+        marginBottom: '1.5rem',
+        borderRadius: '0 8px 8px 0'
+      }}>
+        <h3 style={{ margin: 0, color: 'var(--primary-dark)', fontSize: '1.1rem', fontWeight: '700', lineHeight: 1.4 }}>
+          "This system predicts stuttering before it occurs using physiological signals."
+        </h3>
       </div>
 
-      <div className="flex-col gap-3">
-        <button className="btn btn-primary" onClick={() => navigate('/monitor')} style={{ padding: '1.5rem', fontSize: '1.1rem' }}>
-          <Activity size={24} />
-          Start Live Monitoring
-        </button>
-        
-        <button className="btn btn-outline" onClick={() => navigate('/reports')}>
-          <FileText size={20} />
-          View Reports
-        </button>
-        
-        <button className="btn btn-outline" onClick={() => navigate('/training')}>
-          <Mic size={20} />
-          Training Mode
-        </button>
-
-        <button className="btn btn-outline" onClick={() => navigate('/comparison')} style={{ borderColor: '#e2e8f0', color: 'var(--text-muted)' }}>
-          <TrendingUp size={20} />
-          View Progress
-        </button>
+      {/* Big Prediction Status Panel */}
+      <div className="card text-center mb-3" style={{ 
+        backgroundColor: getStatusBg(), 
+        transition: 'background-color 0.8s ease',
+        border: `2px solid ${getStatusColor()}`,
+        boxShadow: status === 'PRE-STUTTER' ? '0 0 20px rgba(239, 68, 68, 0.4)' : 'var(--card-shadow)',
+        padding: '2rem 1rem'
+      }}>
+        <h4 className="text-muted mb-2" style={{ textTransform: 'uppercase', letterSpacing: '1px' }}>Live Prediction</h4>
+        <div style={{ 
+          fontSize: '2.5rem', 
+          fontWeight: '800', 
+          color: getStatusColor(),
+          textShadow: '0px 2px 4px rgba(0,0,0,0.1)'
+        }}>
+          {status === 'NORMAL' && '🟢 NORMAL'}
+          {status === 'STRESS' && '🟡 STRESS'}
+          {status === 'PRE-STUTTER' && '🔴 PRE-STUTTER'}
+        </div>
       </div>
+
+      {/* Alert System */}
+      {isAlertActive && (
+        <div className="card mb-3 alert-box" style={{ 
+          backgroundColor: '#fef2f2', 
+          color: '#991b1b', 
+          border: '2px solid #ef4444', 
+          display: 'flex',
+          gap: '1rem',
+          alignItems: 'center'
+        }}>
+          <AlertTriangle size={36} color="#ef4444" className="blink" />
+          <div>
+            <strong style={{ display: 'block', fontSize: '1.1rem' }}>⚠️ ALERT: Possible speech block detected</strong>
+            <span style={{ opacity: 0.9 }}>Please slow down and breathe.</span>
+          </div>
+        </div>
+      )}
+
+      {/* Live Sensor Dashboard */}
+      <h3 className="mb-2 flex items-center gap-2">
+        <Activity size={20} color="var(--primary)" />
+        Live Sensor Data
+      </h3>
+      
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div className="card text-center sensor-card">
+          <Heart size={36} color="#ef4444" style={{ margin: '0 auto 0.5rem' }} className="pulse-icon" />
+          <div className="text-muted mb-1 font-semibold">❤️ BPM (Heart Rate)</div>
+          <div style={{ fontSize: '1.8rem', fontWeight: '700' }}>{data.bpm}</div>
+        </div>
+        
+        <div className="card text-center sensor-card">
+          <Droplet size={36} color="#3b82f6" style={{ margin: '0 auto 0.5rem' }} />
+          <div className="text-muted mb-1 font-semibold">💧 GSR (Stress)</div>
+          <div style={{ fontSize: '1.8rem', fontWeight: '700' }}>{data.gsr} <span style={{fontSize: '1rem'}}>µS</span></div>
+        </div>
+        
+        <div className="card text-center sensor-card">
+          <MicIcon size={36} color="#8b5cf6" style={{ margin: '0 auto 0.5rem' }} />
+          <div className="text-muted mb-1 font-semibold">🎤 MIC (Activity)</div>
+          <div style={{ fontSize: '1.8rem', fontWeight: '700' }}>{data.speech}%</div>
+        </div>
+        
+        <div className="card text-center sensor-card">
+          <Activity size={36} color="#f59e0b" style={{ margin: '0 auto 0.5rem' }} />
+          <div className="text-muted mb-1 font-semibold">🤚 MOTION</div>
+          <div style={{ fontSize: '1.8rem', fontWeight: '700' }}>{data.motion}</div>
+        </div>
+      </div>
+
+      {/* Session Report Section */}
+      <h3 className="mb-2 flex items-center gap-2">
+        📊 Session Summary
+      </h3>
+      <div className="card mb-3" style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex items-center gap-2 text-muted">
+            <Clock size={18} />
+            <span>Duration</span>
+          </div>
+          <span style={{ fontWeight: '600' }}>{formatTime(stats.duration)}</span>
+        </div>
+        
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex items-center gap-2 text-muted">
+            <AlertTriangle size={18} color="var(--stress)" />
+            <span>Stress Events</span>
+          </div>
+          <span style={{ fontWeight: '600' }}>{stats.stressEvents}</span>
+        </div>
+        
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex items-center gap-2 text-muted">
+            <AlertTriangle size={18} color="var(--pre-stutter)" />
+            <span>Pre-Stutter Events</span>
+          </div>
+          <span style={{ fontWeight: '600', color: stats.preStutterEvents > 0 ? 'var(--pre-stutter)' : 'inherit' }}>
+            {stats.preStutterEvents}
+          </span>
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2 text-muted">
+            <Heart size={18} color="var(--primary)" />
+            <span>Avg BPM</span>
+          </div>
+          <span style={{ fontWeight: '600' }}>92 BPM</span>
+        </div>
+      </div>
+
+      <style>{`
+        .blink {
+          animation: blinker 1s linear infinite;
+        }
+        @keyframes blinker {
+          50% { opacity: 0; }
+        }
+        .pulse-icon {
+          animation: pulseIcon 1s infinite alternate;
+        }
+        @keyframes pulseIcon {
+          from { transform: scale(1); }
+          to { transform: scale(1.1); }
+        }
+        .sensor-card {
+          transition: transform 0.2s;
+        }
+        .sensor-card:active {
+          transform: scale(0.98);
+        }
+        .alert-box {
+          animation: slideDown 0.3s ease-out;
+        }
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
